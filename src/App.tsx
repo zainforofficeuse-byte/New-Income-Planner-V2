@@ -2374,8 +2374,8 @@ const MainApp: React.FC = () => {
 
     // --- Background Sync Logic ---
     const syncData = React.useCallback(async () => {
-        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured || GOOGLE_API_KEY === "PASTE_YOUR_GOOGLE_API_KEY_HERE") {
-             if (GOOGLE_API_KEY === "PASTE_YOUR_GOOGLE_API_KEY_HERE" && accessToken) {
+        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured || GOOGLE_API_KEY === "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4") {
+             if (GOOGLE_API_KEY === "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4" && accessToken) {
                 console.error("Google Sync stopped: API Key is missing.");
                 setSyncStatus('error');
             }
