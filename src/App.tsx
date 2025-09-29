@@ -1303,7 +1303,13 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
     
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [historyDaysToShow, setHistoryDaysToShow] = React.useState(7);
-    const [sortConfig, setSortConfig] = React.useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'descending' });
+    const [sortConfig, setSortConfig] = React.useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'ascending' });
+    const dataEntryContainerRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+        // When the component mounts, scroll to the data entry form.
+        dataEntryContainerRef.current?.scrollIntoView({ behavior: "auto" });
+    }, []);
 
     const requestSort = (key: SortKey) => {
         let direction: SortDirection = 'ascending';
@@ -1353,7 +1359,8 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             
             const dateA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
             const dateB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-            return dateB - dateA;
+            // Secondary sort for stability
+            return sortConfig.direction === 'ascending' ? dateA - dateB : dateB - dateA;
         });
 
         return sorted;
@@ -1452,7 +1459,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             )}
         </div>
         
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-4 mt-auto shadow-lg border border-gray-200 dark:border-gray-700">
+        <div ref={dataEntryContainerRef} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-4 mt-auto shadow-lg border border-gray-200 dark:border-gray-700">
             <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400 dark:text-gray-500">{currencySymbol}</span>
                 <input
