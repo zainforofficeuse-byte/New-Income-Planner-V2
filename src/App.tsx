@@ -1,6 +1,6 @@
 // FIX: Corrected React import statement. The previous syntax was invalid.
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from '../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 import Privacy from './pages/Privacy';
@@ -625,7 +625,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onCopyData, copyStatus, onOpenClipboardImport
 }) => {
     if (!isOpen) return null;
-    const [activeView, setActiveView] = React.useState<'sync' | 'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals'>('accounts');
+    const [activeView, setActiveView] = React.useState<'sync' | 'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals'>('sync');
 
     const settingsNavItems = [
         { key: 'sync', label: 'Sync & Data' },
@@ -711,14 +711,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     )}
                                 </div>
                                 <div className="text-center mt-4">
-                                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</a>
+                                    <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</Link>
                                 </div>
                             </>
                         ) : (
-                            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/40 rounded-lg border border-yellow-200 dark:border-yellow-800/60">
+                            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/40 rounded-lg border border-yellow-200 dark:border-yellow-800/60 text-left">
                                 <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Feature Not Configured</h4>
-                                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                                    The Google Sync feature requires setup by an administrator. The Google Client ID is missing.
+                                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
+                                    To enable Google Sync, you must edit the <code className="bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded text-xs">src/App.tsx</code> file.
+                                </p>
+                                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
+                                    Find the variables <code className="bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded text-xs">googleClientId</code> and <code className="bg-yellow-200 dark:bg-yellow-800/50 p-1 rounded text-xs">GOOGLE_API_KEY</code> and replace the placeholder values with your own credentials from the Google Cloud Console.
                                 </p>
                             </div>
                         )}
@@ -2151,36 +2154,54 @@ const MainApp: React.FC = () => {
     });
 
     const [entries, setEntries] = React.useState<Entry[]>(() => {
+        // FIX: This initializer was causing a crash by trying to access the `accounts` state
+        // variable before it was initialized. It has been rewritten to be self-contained.
+        
+        // First, load initial accounts data directly from localStorage.
+        let initialAccounts: string[];
+        try {
+            const savedAccounts = localStorage.getItem('incomePlanner-accounts');
+            const parsedAccounts = savedAccounts ? JSON.parse(savedAccounts) : defaultAccounts;
+            initialAccounts = Array.isArray(parsedAccounts) && parsedAccounts.length > 0 ? parsedAccounts : defaultAccounts;
+        } catch {
+            initialAccounts = defaultAccounts;
+        }
+        const fallbackAccount = initialAccounts[0] || 'Cash';
+    
+        // Now, load and migrate entries using the independently loaded accounts data.
         try {
             const saved = localStorage.getItem('incomePlanner-entries');
             let parsed = saved ? JSON.parse(saved) : [];
-
-            // Data migration for new schema with category/description fields
-            if (parsed.length > 0 && parsed[0].category === undefined) {
-                 parsed = parsed.map((e: any) => ({
-                    ...e,
-                    category: e.description, // The old 'description' becomes the 'category'
-                    description: '', // A new empty 'description' for notes
-                    account: e.account || accounts[0] || 'Cash', // Keep account migration logic
-                 }));
-            } else {
-                 // Handle just the account migration if category is already present
-                 parsed = parsed.map((e: any) => ({
-                    ...e,
-                    account: e.account || accounts[0] || 'Cash',
-                }));
+    
+            const needsMigration = parsed.length > 0 && (parsed[0].category === undefined || parsed[0].account === undefined);
+    
+            if (needsMigration) {
+                parsed = parsed.map((e: any) => {
+                    const newEntry = { ...e };
+                    // Migrate from old schema where description was used as category
+                    if (newEntry.category === undefined) {
+                        newEntry.category = e.description || 'Uncategorized';
+                        newEntry.description = '';
+                    }
+                    // Ensure every entry has a valid account, assigning a fallback if not.
+                    if (!e.account || !initialAccounts.includes(e.account)) {
+                        newEntry.account = fallbackAccount;
+                    }
+                    return newEntry;
+                });
             }
-            // FIX: Ensure `amount` is a number to prevent type errors in calculations.
-            // Data from localStorage might have amounts as strings.
+            
+            // Final check to ensure amounts are numbers
             if (Array.isArray(parsed)) {
                 return parsed.map(e => ({...e, amount: parseFloat(String(e.amount || 0).replace(/,/g, ''))}));
             }
-            return parsed;
+            return [];
         } catch (error) {
             console.error("Error reading or migrating entries from localStorage", error);
             return [];
         }
     });
+
     // FIX: Replaced `aistudiocdn` with `React`
     const [amount, setAmount] = React.useState<string>('');
     const [category, setCategory] = React.useState<string>('');
@@ -2282,18 +2303,22 @@ const MainApp: React.FC = () => {
     const [copyStatus, setCopyStatus] = React.useState<'idle' | 'copied'>('idle');
 
     // --- Google State & Configuration ---
-    // The Client ID is required for Google Sign-In. It is safe to be public.
-    const googleClientId = "368572319708-ilhc8di33bkvnt01rg88kfmfce38bifr.apps.googleusercontent.com";
-
     // --- ACTION REQUIRED ---
-    // For Google Sheets sync to work, you must replace the placeholder value below with your actual Google API Key.
-    // Get an API Key from the Google Cloud Console. See the administrator guide for instructions.
-    // The sign-in button will work without this, but data syncing will fail until the key is provided.
-    // FIX: Explicitly type GOOGLE_API_KEY as string to prevent TypeScript errors
-    // when comparing it to the placeholder string literal in subsequent checks.
-    const GOOGLE_API_KEY: string = "AIzaSyCuUSQNbKUX_2OYeuaZLLJgG2de8prd54c";
+    // To enable Google Sign-In and data synchronization, you must provide your own credentials below.
+    // 1. Go to the Google Cloud Console: https://console.cloud.google.com/
+    // 2. Create a new project or select an existing one.
+    // 3. Go to "APIs & Services" -> "Credentials".
+    // 4. Create an "OAuth 2.0 Client ID" for a "Web application".
+    //    - CRITICAL: Add your application's URL (e.g., https://your-app-url.com or http://localhost:PORT)
+    //      to the "Authorized JavaScript origins" to prevent 'redirect_uri_mismatch' errors.
+    // 5. Create an "API Key". Restrict it to the "Google Drive API" and "Google Sheets API".
+    //
+    // Replace the placeholder strings below with your actual credentials.
+    const googleClientId = "989610741631-g0rjr7i8ld4g99196tr3573ttplk71mo.apps.googleusercontent.com";
+    const GOOGLE_API_KEY: string = "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4";
 
-    const isGoogleSyncConfigured = !!googleClientId;
+    // This check will now correctly disable the feature until you add your keys.
+    const isGoogleSyncConfigured = googleClientId !== "989610741631-g0rjr7i8ld4g99196tr3573ttplk71mo.apps.googleusercontent.com" && GOOGLE_API_KEY !== "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4";
     const [tokenClient, setTokenClient] = React.useState<any>(null);
     const [userProfile, setUserProfile] = React.useState<{ name: string; email: string; picture: string; } | null>(null);
     const [accessToken, setAccessToken] = React.useState<string | null>(null);
@@ -2314,7 +2339,7 @@ const MainApp: React.FC = () => {
 
     React.useEffect(() => {
         const initializeGsi = () => {
-            if (window.google && googleClientId) {
+            if (window.google && isGoogleSyncConfigured) {
                 const client = window.google.accounts.oauth2.initTokenClient({
                     client_id: googleClientId,
                     scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets',
@@ -2341,19 +2366,18 @@ const MainApp: React.FC = () => {
 
         if (!isGoogleSyncConfigured) return;
 
+        const script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
         if (window.google) {
             initializeGsi();
-        } else {
-            const gsiScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-            if (gsiScript) {
-                gsiScript.addEventListener('load', initializeGsi);
-            }
+        } else if (script) {
+            script.addEventListener('load', initializeGsi);
+             return () => script.removeEventListener('load', initializeGsi);
         }
     }, [googleClientId, handleGoogleSignOut, isGoogleSyncConfigured]);
 
     React.useEffect(() => {
         const initializeGapi = async () => {
-            if (window.gapi && accessToken && GOOGLE_API_KEY !== "PASTE_YOUR_GOOGLE_API_KEY_HERE") {
+            if (window.gapi && accessToken && isGoogleSyncConfigured) {
                  await new Promise((resolve) => window.gapi.load('client', resolve));
                  await window.gapi.client.init({
                     apiKey: GOOGLE_API_KEY,
@@ -2366,7 +2390,7 @@ const MainApp: React.FC = () => {
             }
         };
         initializeGapi();
-    }, [accessToken, GOOGLE_API_KEY]);
+    }, [accessToken, GOOGLE_API_KEY, isGoogleSyncConfigured]);
 
     const handleGoogleSignIn = React.useCallback(() => {
         if (tokenClient) tokenClient.requestAccessToken();
@@ -2374,11 +2398,7 @@ const MainApp: React.FC = () => {
 
     // --- Background Sync Logic ---
     const syncData = React.useCallback(async () => {
-        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured || GOOGLE_API_KEY === "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4") {
-             if (GOOGLE_API_KEY === "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4" && accessToken) {
-                console.error("Google Sync stopped: API Key is missing.");
-                setSyncStatus('error');
-            }
+        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured) {
             return;
         }
 
@@ -2405,6 +2425,7 @@ const MainApp: React.FC = () => {
                                 { userEnteredValue: { stringValue: 'Amount' } },
                                 { userEnteredValue: { stringValue: 'Category' } },
                                 { userEnteredValue: { stringValue: 'Description' } },
+                                { userEnteredValue: { stringValue: 'Account' } },
                             ]}]}]
                         }]
                     });
@@ -2428,12 +2449,12 @@ const MainApp: React.FC = () => {
             }
 
             const rowsToAppend = newEntries.map(entry => [
-                entry.id, entry.date, entry.time, entry.isIncome ? 'Income' : 'Expense', entry.amount, entry.category, entry.description
+                entry.id, entry.date, entry.time, entry.isIncome ? 'Income' : 'Expense', entry.amount, entry.category, entry.description, entry.account
             ]);
             
             await window.gapi.client.sheets.spreadsheets.values.append({
                 spreadsheetId: sheetId,
-                range: 'Transactions!A:G',
+                range: 'Transactions!A:H',
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: rowsToAppend },
             });
@@ -2444,7 +2465,7 @@ const MainApp: React.FC = () => {
             if (error.result?.error?.code === 401) handleGoogleSignOut();
             setSyncStatus('error');
         }
-    }, [accessToken, entries, spreadsheetId, handleGoogleSignOut, isGoogleSyncConfigured, GOOGLE_API_KEY]);
+    }, [accessToken, entries, spreadsheetId, handleGoogleSignOut, isGoogleSyncConfigured]);
 
     React.useEffect(() => {
         const handler = setTimeout(() => {

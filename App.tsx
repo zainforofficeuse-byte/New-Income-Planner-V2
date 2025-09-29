@@ -2281,7 +2281,7 @@ const App: React.FC = () => {
 
     // --- Google State & Configuration ---
     // The Client ID is required for Google Sign-In. It is safe to be public.
-    const googleClientId = "368572319708-ilhc8di33bkvnt01rg88kfmfce38bifr.apps.googleusercontent.com";
+    const googleClientId = "989610741631-g0rjr7i8ld4g99196tr3573ttplk71mo.apps.googleusercontent.com";
 
     // --- ACTION REQUIRED ---
     // For Google Sheets sync to work, you must replace the placeholder value below with your actual Google API Key.
@@ -2289,7 +2289,7 @@ const App: React.FC = () => {
     // The sign-in button will work without this, but data syncing will fail until the key is provided.
     // FIX: Explicitly type GOOGLE_API_KEY as string to prevent TypeScript errors
     // when comparing it to the placeholder string literal in subsequent checks.
-    const GOOGLE_API_KEY: string = "AIzaSyCuUSQNbKUX_2OYeuaZLLJgG2de8prd54c";
+    const GOOGLE_API_KEY: string = "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4";
 
     const isGoogleSyncConfigured = !!googleClientId;
     const [tokenClient, setTokenClient] = React.useState<any>(null);
@@ -2351,7 +2351,7 @@ const App: React.FC = () => {
 
     React.useEffect(() => {
         const initializeGapi = async () => {
-            if (window.gapi && accessToken && GOOGLE_API_KEY !== "PASTE_YOUR_GOOGLE_API_KEY_HERE") {
+            if (window.gapi && accessToken && GOOGLE_API_KEY !== "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4") {
                  await new Promise((resolve) => window.gapi.load('client', resolve));
                  await window.gapi.client.init({
                     apiKey: GOOGLE_API_KEY,
@@ -2372,8 +2372,8 @@ const App: React.FC = () => {
 
     // --- Background Sync Logic ---
     const syncData = React.useCallback(async () => {
-        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured || GOOGLE_API_KEY === "PASTE_YOUR_GOOGLE_API_KEY_HERE") {
-             if (GOOGLE_API_KEY === "PASTE_YOUR_GOOGLE_API_KEY_HERE" && accessToken) {
+        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured || GOOGLE_API_KEY === "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4") {
+             if (GOOGLE_API_KEY === "AIzaSyCwU0nJJzTeawLfRuD_q0HzC4gHIwwVck4" && accessToken) {
                 console.error("Google Sync stopped: API Key is missing.");
                 setSyncStatus('error');
             }
